@@ -50,25 +50,35 @@
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex
 {
     if (buttonIndex != actionSheet.cancelButtonIndex) {
-        [_apiManager performReverseAuthForAccount:_accounts[buttonIndex] withHandler:^(NSData *responseData, NSError *error) {
-            if (responseData) {
-                NSString *responseStr = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
-                
-                TWDLog(@"Reverse Auth process returned: %@", responseStr);
-                
-                NSArray *parts = [responseStr componentsSeparatedByString:@"&"];
-                NSString *lined = [parts componentsJoinedByString:@"\n"];
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Success!" message:lined delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
-                    [alert show];
-                });
-            }
-            else {
-                TWALog(@"Reverse Auth process failed. Error returned was: %@\n", [error localizedDescription]);
-            }
-        }];
+        [self performReverseAuthForAccountAtIndex:buttonIndex];
     }
+}
+
+- (void)performReverseAuthForAccountAtIndex:(int)index
+{
+    [_apiManager performReverseAuthForAccount:_accounts[index] withHandler:^(NSData *responseData, NSError *error) {
+        if (responseData) {
+            NSString *responseStr = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
+            TWDLog(@"Reverse Auth process returned: %@", responseStr);
+            
+            NSArray *parts = [responseStr componentsSeparatedByString:@"&"];
+            NSString *lined = [parts componentsJoinedByString:@"\n"];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Success!" message:lined delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+                [alert show];
+                if ([_delegate respondsToSelector:@selector(twitterAuthTokenDidSuccess:)]) {
+                    [_delegate performSelector:@selector(twitterAuthTokenDidSuccess:) withObject:lined ];
+                }
+            });
+        }
+        else {
+            TWALog(@"Reverse Auth process failed. Error returned was: %@\n", [error localizedDescription]);
+            if ([_delegate respondsToSelector:@selector(twitterAuthTokenDidfail::)]) {
+                [_delegate performSelector:@selector(twitterAuthTokenDidfail::) withObject:[error localizedDescription]];
+            }
+        }
+    }];
 }
 
 #pragma mark - Private
@@ -83,29 +93,31 @@
  *
  *  Upon completion, the button to continue will be displayed, or the user will be presented with a status message.
  */
-- (void)refreshTwitterAccounts
+- (void)refreshTwitterAccountsWithSuccessBlock:(void (^)())success andFailureBlock:(void (^)(NSString *errorDescription))error
 {
     TWDLog(@"Refreshing Twitter Accounts \n");
     
     if (![TWAPIManager hasAppKeys]) {
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:ERROR_TITLE_MSG message:ERROR_NO_KEYS delegate:nil cancelButtonTitle:ERROR_OK otherButtonTitles:nil];
         [alert show];
+        error(ERROR_NO_KEYS);
     }
     else if (![TWAPIManager isLocalTwitterAccountAvailable]) {
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:ERROR_TITLE_MSG message:ERROR_NO_ACCOUNTS delegate:nil cancelButtonTitle:ERROR_OK otherButtonTitles:nil];
         [alert show];
+        error(ERROR_NO_ACCOUNTS);
     }
     else {
         [self obtainAccessToAccountsWithBlock:^(BOOL granted) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (granted) {
-                    if ([_delegate respondsToSelector:@selector(granted)])
-                        [_delegate performSelector:@selector(granted)];
+                    success();
                 }
                 else {
                     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:ERROR_TITLE_MSG message:ERROR_PERM_ACCESS delegate:nil cancelButtonTitle:ERROR_OK otherButtonTitles:nil];
                     [alert show];
                     TWALog(@"You were not granted access to the Twitter accounts.");
+                    error(ERROR_PERM_ACCESS);
                 }
             });
         }];

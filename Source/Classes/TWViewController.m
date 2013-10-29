@@ -99,7 +99,11 @@
 
 - (void)refreshTwitterAccounts
 {
-    [_twitterSignInManager refreshTwitterAccounts];
+    [_twitterSignInManager refreshTwitterAccountsWithSuccessBlock:^{
+        [self granted];
+    } andFailureBlock:^(NSString *errorDescription) {
+        NSLog(@"%@", errorDescription);
+    }];
 }
 
 /**
@@ -118,10 +122,21 @@
     [sheet showInView:self.view];
 }
 
-#pragma mark TwitterSignInManagerDelegate
 - (void)granted
 {
     _reverseAuthBtn.enabled = YES;
+}
+
+
+#pragma mark TwitterSignInManagerDelegate
+- (void)twitterAuthTokenDidSuccess:(NSString *)result
+{
+    NSLog(@"%@", result);
+}
+
+- (void)twitterAuthTokenDidfail:(NSString *)errorDescription
+{
+    NSLog(@"%@", errorDescription);
 }
 
 @end

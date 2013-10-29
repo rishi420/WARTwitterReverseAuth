@@ -10,11 +10,13 @@
 #import <Accounts/Accounts.h>
 
 @protocol TwitterSignManagerDelegate <NSObject>
-- (void)granted;
+- (void)twitterAuthTokenDidSuccess:(NSString *)result;
+- (void)twitterAuthTokenDidfail:(NSString *)errorDescription;
 @end
 
 @interface TwitterSignInManager : NSObject <UIActionSheetDelegate>
 @property (nonatomic, assign) id<TwitterSignManagerDelegate> delegate;
 @property (readonly) NSArray *userNames;
-- (void)refreshTwitterAccounts;
+- (void)refreshTwitterAccountsWithSuccessBlock:(void (^)())success andFailureBlock:(void (^)(NSString *errorDescription))error;
+- (void)performReverseAuthForAccountAtIndex:(int)index;
 @end
